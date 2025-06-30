@@ -244,14 +244,18 @@ jobs:
             sudo systemctl start docker || sudo service docker start
 
             # Verificar e remover qualquer container existente com mesmo nome (mesmo parado)
-            EXISTING_CONTAINER=$(docker ps -a --filter "name=^/${REPO_NAME}$" --format "{{.Names}}")
+            EXISTING_CONTAINER=$(docker ps -a --filter "name=^/${REPO_NAME}$" --format "{{.ID}}")
 
             if [ -n "$EXISTING_CONTAINER" ]; then
-              echo "🛑 Parando e removendo container existente: $EXISTING_CONTAINER"
-              docker rm -f "$EXISTING_CONTAINER"
+              echo "🛑 Parando container existente $EXISTING_CONTAINER..."
+              docker stop "$EXISTING_CONTAINER" || echo "Container já parado."
+              
+              echo "🛑 Removendo container existente $EXISTING_CONTAINER..."
+              docker rm "$EXISTING_CONTAINER" || echo "Falha ao remover container, talvez já removido."
             else
               echo "ℹ️ Nenhum container com o nome $REPO_NAME encontrado."
             fi
+
 
 
             echo "🧹 Removendo imagem local antiga, se existir..."
