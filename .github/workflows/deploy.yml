@@ -117,34 +117,20 @@ jobs:
             sudo yum update -y || sudo apt update -y
             sudo systemctl start docker || sudo service docker start
 
-            # Parar e remover container atual (rodando ou não)
-            CONTAINER_ID=$(docker ps -aq --filter "name=^/${REPO_NAME}$")
-            if [ -n "$CONTAINER_ID" ]; then
-              echo "⚙️ Container atual encontrado (em qualquer estado): $CONTAINER_ID"
-              echo "🛑 Removendo container..."
-              docker rm -f "$CONTAINER_ID"
+            # Verificar container existente (em execução ou parado)
+            EXISTING_CONTAINER_ID=$(docker ps -aq --filter "name=$REPO_NAME")
+            if [ -n "$EXISTING_CONTAINER_ID" ]; then
+              echo "⚙️ Container existente encontrado. Removendo..."
+              docker rm -f "$REPO_NAME" || true
             else
-              echo "ℹ️ Nenhum container atual encontrado com nome: $REPO_NAME"
+              echo "ℹ️ Nenhum container com nome: $REPO_NAME"
             fi
 
-            # Verificar se a porta 80 está ocupada por outro container
-            PORT_80_CONTAINER=$(docker ps --format '{{.ID}} {{.Ports}}' | grep '0.0.0.0:80->' | awk '{print $1}')
-            if [ -n "$PORT_80_CONTAINER" ]; then
-              echo "⚠️ A porta 80 está em uso por outro container: $PORT_80_CONTAINER"
-              echo "🛑 Parando container que usa a porta 80..."
-              docker rm -f "$PORT_80_CONTAINER"
-            fi
-
-            echo "🧹 Removendo imagem local antiga..."
+            echo "🧹 Removendo imagem local antiga, se existir..."
             docker rmi -f "$IMAGE" || echo "ℹ️ Nenhuma imagem antiga encontrada com a tag: $IMAGE"
 
             echo "⬇️ Baixando nova imagem..."
-            docker pull $IMAGE
+            docker pull "$IMAGE"
 
-            echo "🚀 Subindo novo container... $REPO_NAME $IMAGE"
-            docker run -d -p 80:80 --name $REPO_NAME $IMAGE
-
-                - name: Notify deployment
-                  run: echo "Deployment completed successfully!"
-                  env:
-                    GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+            echo "🚀 Subindo novo container na porta 8080... $REPO_NAME $IMAGE"
+            docker run -d -p 8080:80 --name "$REPO_NAME" "$IMAGE"
