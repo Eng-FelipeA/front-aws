@@ -243,22 +243,22 @@ jobs:
             sudo yum update -y || sudo apt update -y
             sudo systemctl start docker || sudo service docker start
 
-            # Verificar container existente
-            CONTAINER_ID=$(docker ps -q --filter "name=$REPO_NAME")
-            if [ -n "$CONTAINER_ID" ]; then
-              echo "⚙️ Container atual em execução:"
-              docker inspect --format='{{.Config.Image}}' $CONTAINER_ID
-              echo "🛑 Parando e removendo container atual..."
-              docker rm -f $REPO_NAME || true
+            # Verificar e remover qualquer container existente com mesmo nome (mesmo parado)
+            EXISTING_CONTAINER_ID=$(docker ps -a --filter "name=^/${REPO_NAME}$" --format "{{.ID}}")
+            if [ -n "$EXISTING_CONTAINER_ID" ]; then
+              echo "⚙️ Container existente encontrado: $EXISTING_CONTAINER_ID"
+              echo "🛑 Parando e removendo container..."
+              docker stop "$EXISTING_CONTAINER_ID" || true
+              docker rm -f "$EXISTING_CONTAINER_ID" || true
             else
-              echo "ℹ️ Nenhum container atual encontrado com nome: $REPO_NAME"
+              echo "ℹ️ Nenhum container com o nome $REPO_NAME encontrado."
             fi
 
             echo "🧹 Removendo imagem local antiga, se existir..."
-            docker rmi -f "$IMAGE" || echo "ℹ️ Nenhuma imagem antiga encontrada com a tag: $IMAGE"
+            docker rmi -f "$IMAGE" || echo "ℹ️ Nenhuma imagem local para remover."
 
-            echo "⬇️ Baixando nova imagem..."
-            docker pull $IMAGE
+            echo "⬇️ Baixando nova imagem do Docker Hub..."
+            docker pull "$IMAGE"
 
-            echo "🚀 Subindo novo container... $REPO_NAME $IMAGE"
-            docker run -d -p 80:80 --name $REPO_NAME $IMAGE
+            echo "🚀 Subindo novo container $REPO_NAME"
+            docker run -d -p 80:80 --name "$REPO_NAME" "$IMAGE"
