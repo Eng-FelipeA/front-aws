@@ -233,9 +233,9 @@ jobs:
           username: ${{ secrets.EC2_USER }}
           key: ${{ secrets.EC2_PRIVATE_KEY }}
           script: |
-            REPO_NAME="${{ needs.build.outputs.repo_name }}"
-            VERSION="${{ needs.build.outputs.new_version }}"
-            IMAGE="${{ secrets.DOCKERHUB_USERNAME }}/$REPO_NAME:$VERSION"
+            REPO_NAME="front-aws"
+            VERSION="0.1.0"
+            IMAGE="***/$REPO_NAME:$VERSION"
 
             echo "🔄 Iniciando deploy da imagem: $IMAGE"
 
@@ -243,26 +243,21 @@ jobs:
             sudo yum update -y || sudo apt update -y
             sudo systemctl start docker || sudo service docker start
 
-            # Verificar e remover qualquer container existente com mesmo nome (mesmo parado)
-            EXISTING_CONTAINER=$(docker ps -a --filter "name=^/${REPO_NAME}$" --format "{{.ID}}")
-
-            if [ -n "$EXISTING_CONTAINER" ]; then
-              echo "🛑 Parando container existente $EXISTING_CONTAINER..."
-              docker stop "$EXISTING_CONTAINER" || echo "Container já parado."
-              
-              echo "🛑 Removendo container existente $EXISTING_CONTAINER..."
-              docker rm "$EXISTING_CONTAINER" || echo "Falha ao remover container, talvez já removido."
+            # Verificar container existente (rodando ou parado)
+            CONTAINER_ID=$(docker ps -aq --filter "name=^${REPO_NAME}$")
+            if [ -n "$CONTAINER_ID" ]; then
+              echo "⚙️ Container atual encontrado (pode estar parado): $CONTAINER_ID"
+              echo "🛑 Parando e removendo container atual..."
+              docker rm -f "$CONTAINER_ID" || true
             else
-              echo "ℹ️ Nenhum container com o nome $REPO_NAME encontrado."
+              echo "ℹ️ Nenhum container atual encontrado com nome: $REPO_NAME"
             fi
 
-
-
             echo "🧹 Removendo imagem local antiga, se existir..."
-            docker rmi -f "$IMAGE" || echo "ℹ️ Nenhuma imagem local para remover."
+            docker rmi -f "$IMAGE" || echo "ℹ️ Nenhuma imagem antiga encontrada com a tag: $IMAGE"
 
-            echo "⬇️ Baixando nova imagem do Docker Hub..."
-            docker pull "$IMAGE"
+            echo "⬇️ Baixando nova imagem..."
+            docker pull $IMAGE
 
-            echo "🚀 Subindo novo container $REPO_NAME"
-            docker run -d -p 80:80 --name "$REPO_NAME" "$IMAGE"
+            echo "🚀 Subindo novo container... $REPO_NAME $IMAGE"
+            docker run -d -p 80:80 --name $REPO_NAME $IMAGE
